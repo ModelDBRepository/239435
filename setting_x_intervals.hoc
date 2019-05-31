@@ -1,0 +1,156 @@
+// This file generates intervals along the x_star axis that have the same number
+// of sections in them. In addition, it generates the same number of synapses in
+// each x interval
+
+
+// defining a round function
+func round() {
+  if ($1>0) {
+    return int($1+0.5)
+  } else {
+    return int($1-0.5)
+  }
+}
+
+
+num_interval = 11
+num_sec_per_int = (numRD-numRD%num_interval) / num_interval
+
+// generating intervals with the same number of sections
+objref sorted_xstar, x_boundary, sorted_ind, copy_xstar
+x_boundary = new Vector(num_interval+1,0)
+sorted_xstar = new Vector()
+sorted_ind = new Vector()
+copy_xstar = new Vector()
+copy_xstar.copy(x_star)         // copying x_star since vec.sort changes the order in vec
+sorted_xstar = copy_xstar.sort()
+sorted_ind = x_star.sortindex()
+
+for i = 0, num_interval {
+    x_boundary.x[i] = sorted_xstar.x[ num_sec_per_int * i ]
+}
+
+
+// create x_bound_val as a vector the same length of numRD (relDend) with values
+// that are the interval in which this section resides
+objref x_bound_val, temp_bound_ind
+x_bound_val = new Vector(numRD, 0)
+
+for ii = 1, num_interval {
+    x_start = x_boundary.x[ii-1]
+    x_end =   x_boundary.x[ii]
+    temp_bound_ind = x_star.c.indvwhere(x_star, "[)", x_start, x_end)
+
+    for jj= 0, temp_bound_ind.size-1 {
+        x_bound_val.x[temp_bound_ind.x[jj]] = ii
+    }
+
+
+}
+
+
+objref tmpsec[numRD]
+
+objref rand
+rand = new Random(seed)
+
+fraction_e = 0.4
+fraction_i = 0.2
+objref base_selected_i, base_selected_e
+// generating a base vector that will repeat for each interval
+// (so that they'll have the same number of synapses)
+base_selected_e = new Vector(num_sec_per_int, 0)
+base_selected_i = new Vector(num_sec_per_int, 0)
+
+while (base_selected_e.sum() < fraction_e * num_sec_per_int) {
+    tmp_ind = round( rand.uniform(0,1) * (num_sec_per_int-1) )
+    base_selected_e.x[tmp_ind] = 1
+}
+
+while (base_selected_i.sum() < fraction_i * num_sec_per_int) {
+    tmp_ind = round( rand.uniform(0,1) * (num_sec_per_int-1) )
+    base_selected_i.x[tmp_ind] = 1
+}
+
+objref flag_selected_i, flag_selected_e
+flag_selected_e = new Vector(numRD, 0)
+flag_selected_i = new Vector(numRD, 0)
+
+// concatenating the base vector to be in the same size as numRD
+// (repeats for each interval, leaving a few sections out of the calculation)
+for i = 0, num_sec_per_int*num_interval - 1 {
+    tmp_ind = i%num_sec_per_int
+
+    flag_selected_e.x[i] = base_selected_e.x[ tmp_ind ]
+    flag_selected_i.x[i] = base_selected_i.x[ tmp_ind ]
+}
+
+objref selected_section_e, selected_section_i
+selected_section_e = new Vector(numRD, 0)
+selected_section_i = new Vector(numRD, 0)
+
+// makes sure selected_section has the same order as the original unsorted x_star
+// (which is the same order relDend is in)
+for i=0, numRD-1{
+
+    selected_section_e.x[ sorted_ind.x[i] ] = flag_selected_e.x[i]
+    selected_section_i.x[ sorted_ind.x[i] ] = flag_selected_i.x[i]
+
+
+}
+
+num_seclamp_e = selected_section_e.sum()
+num_seclamp_i = selected_section_i.sum()
+objref i_e[num_seclamp_e], i_i[num_seclamp_i]
+
+// putting SEClamp in selected sections
+
+k = 0
+count_e = 0
+count_i = 0
+
+if (same_inp == 1) { // puts all inputs in the same dendritic section
+
+    forsec RelDend {
+
+	    Cell[0].dend[0] {
+            if(selected_section_e.x[k]==1) {
+                i_e[count_e] = new SEClamp(0.5)
+                count_e = count_e + 1
+            }
+
+            if(selected_section_i.x[k]==1) {
+                i_i[count_i] = new SEClamp(0.5)
+                count_i = count_i + 1
+            }
+
+	    }
+
+	k = k + 1
+
+    }
+
+} else {
+
+    forsec RelDend {
+
+	    tmpsec[k] = new SectionRef()
+
+	    tmpsec[k].sec {
+            if(selected_section_e.x[k]==1) {
+                i_e[count_e] = new SEClamp(0.5)
+                count_e = count_e + 1
+            }
+
+            if(selected_section_i.x[k]==1) {
+                i_i[count_i] = new SEClamp(0.5)
+                count_i = count_i + 1
+            }
+
+	    }
+
+	k = k + 1
+
+    }
+
+}

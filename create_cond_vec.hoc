@@ -1,0 +1,35 @@
+obfunc create_cond_vec() { localobj condvec, tvec
+
+    tvec = $o1
+    t0 = $2 //start
+    t1 = $3 //stop
+    tr = $4 //first time constant
+    td = $5 //second time constant
+    amp = $6 //amplitude
+
+    vecsize = tvec.size()
+    condvec = new Vector( vecsize , 0 )
+
+    for i=0, vecsize-1 {
+        t = tvec.x[i]
+        tmp = 0
+        if ( t >= t0 && t < t1 ) {
+            tmp = (td - exp( (-t + t0)/td )*td + (-1 + exp( (-t + t0)/tr))*tr) / (td - tr)
+        }
+        if (t >= t1 ) {
+            tmp = condvec.x[i] =  -(exp( (-t + t0)/td )*td - exp((-t + t1)/td)*td - exp((-t + t0)/tr)*tr +exp((-t + t1)/tr)*tr)/(td - tr)
+        }
+        tmp = tmp * amp
+        if(tmp<1e-9){
+            condvec.x[i] = 1e9
+        } else {
+            condvec.x[i] = 1/tmp
+        }
+
+
+
+    }
+
+    return condvec
+
+}

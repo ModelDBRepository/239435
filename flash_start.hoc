@@ -1,0 +1,148 @@
+
+
+strdef fileSt1, fileSt2, fileName
+
+v_init = -65 // used for initial conditions
+tstop = 650 // in msec, stop time
+Vleak=-65
+seed = 300
+
+{
+	load_file("nrngui.hoc")
+}
+
+// LOAD MORPHOLOGY.
+{
+	load_file("loadMorph.hoc") // loads cell morphology from swc file
+}
+
+segL = 2		// the length (in microns) of each dendritic segment
+forall { ns=int(L/segL+0.5)
+        if (ns==0) {
+             ns=1
+        }
+        if ((ns-int(ns/2)*2)==0) {
+             ns=ns+1
+        }
+        nseg = ns
+}
+
+same_inp = 0 // logical flag. Relevant for the moving bar
+
+fileSt1 = "vm_trace_flash"
+
+zero_inhib = 0// logical flag. Determines whether inhibitory synapses would be active
+// if 1 inhibition is zeroed. Used in setting_synapse_parameters_mov
+if (zero_inhib == 1) {
+	fileSt2 = "noI_T.dat"
+} else {
+	fileSt2 = "noI_F.dat"
+}
+
+sprint(fileName, "%s-%s", fileSt1, fileSt2)
+
+// creating time vector
+objref tvec
+vecsize = tstop
+
+tvec = new Vector( vecsize , 0 )
+for i=0, vecsize-2 {
+    tvec.x[i+1] = tvec.x[i] + 1
+
+}
+
+
+
+objref params, f2
+params = new Vector()
+f2 = new File()
+f2.ropen("parameters.dat")
+params.scanf(f2)
+f2.close()
+
+// parameters.dat contains the 12 model parameters that are described in Supp. Table 1
+
+taur_e = params.x[0] // first time constant for excitatory conductance
+taud_e = params.x[1] // second time constant for excitatory conductance
+taur_i = params.x[2] // first time constant for inhibitory conductance
+taud_i = params.x[3] // second time constant for inhibitory conductance
+a_e = params.x[4] // gaussian amplitude for excitatory synapse weights
+mu_e = params.x[5] // gaussian center for excitatory synapse weights
+sigma_e = params.x[6] // gaussian spread for excitatory synapse weights
+a_i = params.x[7] // gaussian amplitude for inhibitory synapse weights
+mu_i = params.x[8] // gaussian center for inhibitory synapse weights
+sigma_i = params.x[9] // gaussian spread for inhibitory synapse weights
+Rm = params.x[10] // membrane resistivity
+global_ra = params.x[11] // axial resistivity
+
+t0 = 0
+
+forall {
+	insert pas  g_pas=1/(Rm)  Ra=global_ra  e_pas=Vleak
+
+}
+
+{
+
+	// function that is used to create the conductance vectors at each synapse
+	load_file("create_cond_vec.hoc")
+	// defines the relevant dendritic axis and generates a value for each
+	// section based on its projected location along that axis
+	load_file("define_dend_axis.hoc")
+	// divides the dendrite into equal intervals. All the synapses within an
+	// interval are activated when a simulated bar is flashed in that position
+	load_file("setting_x_intervals.hoc")
+
+}
+
+
+objref vm_trace, time_trace
+vm_trace = new Vector()
+time_trace = new Vector()
+
+
+
+// single flash durations (used to generate conductance vectors)
+objref t_stim
+t_stim = new Vector(4)
+t_stim.x[0] = 20
+t_stim.x[1] = 40
+t_stim.x[2] = 80
+t_stim.x[3] = 160
+
+
+objref f1, ftime1
+f1 = new File()
+f1.wopen(fileName)
+ftime1 = new File()
+ftime1.wopen("time_trace_flash.dat")
+
+
+
+for ind_t_stim = 0,3 { // over all durations
+	t1 = t0 + t_stim.x[ind_t_stim]
+
+	for ind_x_stim = 0,10 { // over all positions
+
+		load_file(1,"setting_synapse_parameters_flash.hoc") //"1" forces file reloading
+		vm_trace.record( &Cell[0].soma[0].v(0.5) )
+		time_trace.record( &t )
+
+		{
+			dt = 0.1
+			steps_per_ms = 10
+
+			init()
+
+			run()
+		}
+		// concatenates the results from each iteration
+		vm_trace.printf(f1)
+		time_trace.printf(ftime1)
+	}
+
+}
+ftime1.close()
+f1.close()
+
+quit()

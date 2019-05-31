@@ -1,0 +1,60 @@
+//  This file generates the relevant axis along which dendritic sections are defined.
+//  We chose 2 sections manually at the end of the dendrite, along what looked like
+// the relevant axis, and each section in the dendrite then gets a score of its distance
+// along that axis (x_star).
+
+// coordinates of the two dendritic segments lying at the extremes of the axis of interest
+// Define a given somatic section.
+
+Cell[0].dend[229] {
+n = n3d()
+x0 = ( x3d(0) + x3d(n-1) ) / 2
+y0 = ( y3d(0) + y3d(n-1) ) / 2
+z0 = ( z3d(0) + z3d(n-1) ) / 2
+}
+
+Cell[0].dend[109] {
+n = n3d()
+x1 = ( x3d(0) + x3d(n-1) ) / 2
+y1 = ( y3d(0) + y3d(n-1) ) / 2
+z1 = ( z3d(0) + z3d(n-1) ) / 2
+}
+
+
+den = (x0-x1)^2 + (y0-y1)^2 + (z0-z1)^2
+
+// select all the relevant dendritic segments (children of dend[0])
+objref RelDend
+RelDend = new SectionList()
+Cell[0].dend[0] {RelDend.subtree()}
+
+
+i = 0
+forsec RelDend {
+    i = i + 1
+    }
+numRD = i
+
+
+
+objref x_star
+x_star = new Vector( numRD )
+
+
+
+
+k = 0
+
+// defining x_star based on the physical coordinates of the current section
+forsec RelDend {
+
+	n = n3d()
+	x = ( x3d(0) + x3d(n-1) ) / 2
+	y = ( y3d(0) + y3d(n-1) ) / 2
+	z = ( z3d(0) + z3d(n-1) ) / 2
+
+	num = (x0-x1)*(x0-x) + (y0-y1)*(y0-y) + (z0-z1)*(z0-z)
+	x_star.x[k] = num / den
+
+	k = k + 1
+}

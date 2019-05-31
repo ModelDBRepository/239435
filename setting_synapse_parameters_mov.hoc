@@ -1,0 +1,72 @@
+// compute time courses of conductances and setting the parameters at all synapses
+
+objref condvec_e[num_seclamp_e], condvec_i[num_seclamp_i]
+objref syn_cord_e, syn_cord_i, syn_cord_fe, syn_cord_fi
+
+k = 0
+count_e = 0
+count_i = 0
+count_active_e = 0
+count_active_i = 0
+
+// defined in moving_start
+if (zero_inhib == 1) {
+	rel_dur = 0
+} else {
+	rel_dur = tstop + 1
+}
+
+
+forsec RelDend {
+
+
+	gpe = a_e * exp( -(mu_e - x_star.x[k])^2 / (2*sigma_e^2) )
+	gpi = a_i * exp( -(mu_i - x_star.x[k])^2 / (2*sigma_i^2) )
+
+	curr_x_bound = x_bound_val.x[k]
+	n = n3d()
+
+	if (PD==1) {
+		t0 = (curr_x_bound-1) * t_stim.x[ind_t_stim]
+		t1 = t0 + t_stim.x[ind_t_stim]
+
+	} else {
+
+		t0 = (11-curr_x_bound) * t_stim.x[ind_t_stim]
+		t1 = t0 + t_stim.x[ind_t_stim]
+
+	}
+
+
+// activating only the SEClamps that lie within the relevant x_star range (defined in my_start)
+    if(selected_section_e.x[k]==1) {
+
+
+
+        condvec_e[count_e] = create_cond_vec( tvec, t0, t1, taur_e, taud_e, gpe) // tvec, t0, t1, tau_r, tau_d, amp
+    	i_e[count_e].amp1 = 0
+
+        i_e[count_e].dur1 = tstop + 1
+        condvec_e[count_e].play(&i_e[count_e].rs, tvec, 1)
+		count_active_e = count_active_e + 1
+
+
+        count_e = count_e + 1
+
+    }
+
+    if(selected_section_i.x[k]==1) {
+        condvec_i[count_i] = create_cond_vec( tvec, t0, t1, taur_i, taud_i, gpi) // tvec, t0, t1, tau_r, tau_d, amp
+    	i_i[count_i].amp1 = -70
+
+        i_i[count_i].dur1 = rel_dur
+        condvec_i[count_i].play(&i_i[count_i].rs, tvec, 1)
+		count_active_i = count_active_i + 1
+
+
+
+        count_i = count_i + 1
+    }
+
+	k = k + 1
+}

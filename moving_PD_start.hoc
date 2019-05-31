@@ -1,0 +1,149 @@
+
+
+strdef fileSt1, fileSt2, fileSt3, fileName
+
+// LOAD GUI.
+PD = 1
+fileSt1 = "vm_trace_PD"
+
+
+zero_inhib = 0 // logical flag. Determines whether inhibitory synapses would be active
+// if 1 inhibition is zeroed. Used in setting_synapse_parameters_mov
+if (zero_inhib == 1) {
+	fileSt2 = "noI_T"
+} else {
+	fileSt2 = "noI_F"
+}
+
+same_inp = 0 // logical flag. If True (1) all synapses will be placed in the base of dend
+//  Used in setting_x_intervals
+
+if (same_inp == 1) {
+	fileSt3 = "sameInpt_T.dat"
+} else {
+	fileSt3 = "sameInpt_F.dat"
+}
+
+sprint(fileName, "%s-%s-%s", fileSt1, fileSt2, fileSt3)
+
+v_init = -65 // used for initial conditions
+Vleak=-65		// leak reversal -66 in Cs+
+seed = 300
+
+{
+	load_file("nrngui.hoc")
+}
+
+// LOAD MORPHOLOGY.
+{
+	load_file("loadMorph.hoc")
+}
+
+segL = 2		// the length (in microns) of each dendritic segment
+forall { ns=int(L/segL+0.5)
+        if (ns==0) {
+             ns=1
+        }
+        if ((ns-int(ns/2)*2)==0) {
+             ns=ns+1
+        }
+        nseg = ns
+}
+
+objref params, f2
+params = new Vector()
+f2 = new File()
+f2.ropen("parameters.dat")
+params.scanf(f2)
+f2.close()
+
+taur_e = params.x[0]
+taud_e = params.x[1]
+taur_i = params.x[2]
+taud_i = params.x[3]
+a_e = params.x[4]
+mu_e = params.x[5]
+sigma_e = params.x[6]
+a_i = params.x[7]
+mu_i = params.x[8]
+sigma_i = params.x[9]
+ Rm = params.x[10]
+ global_ra = params.x[11]
+
+t0 = 0
+
+forall {
+	insert pas  g_pas=1/(Rm)  Ra=global_ra  e_pas=Vleak
+
+}
+
+{
+
+	
+	load_file("create_cond_vec.hoc")
+	load_file("define_dend_axis.hoc")
+	load_file("setting_x_intervals.hoc")
+
+}
+
+
+objref vm_trace, time_trace
+vm_trace = new Vector()
+time_trace = new Vector()
+
+
+objref t_stim
+t_stim = new Vector(6)
+
+t_stim.x[0] = 20
+t_stim.x[1] = 40
+t_stim.x[2] = 80
+t_stim.x[3] = 160
+
+
+objref f1, ftime1
+f1 = new File()
+
+
+f1.wopen(fileName)
+
+ftime1 = new File()
+ftime1.wopen("time_trace_moving.dat") //same for PD and ND
+
+
+objref tvec
+
+for ind_t_stim = 0,3 {
+
+	tstop = t_stim.x[ind_t_stim]*11 + 1000
+	vecsize = tstop
+	tvec = new Vector( vecsize , 0 )
+	for i=0, vecsize-2 {
+	    tvec.x[i+1] = tvec.x[i] + 1
+	}
+
+
+
+	load_file(1,"setting_synapse_parameters_mov.hoc") //"1" forces file reloading
+
+	vm_trace.record( &Cell[0].soma[0].v(0.5) )
+	time_trace.record( &t )
+	printf("t0: %f\t t1:%f\n",t0,t1)
+
+	{
+		dt = 0.1
+		steps_per_ms = 10
+
+		init()
+
+		run()
+	}
+	vm_trace.printf(f1)
+	time_trace.printf(ftime1)
+
+
+}
+ftime1.close()
+f1.close()
+
+quit()
